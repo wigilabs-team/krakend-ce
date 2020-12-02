@@ -1,5 +1,7 @@
 module github.com/devopsfaith/krakend-ce
 
+replace github.com/devopsfaith/krakend => ../krakend
+	
 go 1.12
 
 require (
