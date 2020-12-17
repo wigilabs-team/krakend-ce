@@ -8,17 +8,21 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"errors"
+	"github.com/devopsfaith/krakend-ce/custom-components/datadog/pb"
 	"github.com/devopsfaith/krakend/logging"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"text/template"
 )
 
 type Config struct {
 	UrlKeysToExtract        []string `json:"url_keys_to_extract"`
 	Template                string   `json:"template"`
+	EndpointContentType     string   `json:"endpoint_content_type"`
 	EndpointContentEncoding string   `json:"endpoint_content_encoding"`
 	BackendContentEncoding  string   `json:"backend_content_encoding"`
 	ContentType             string   `json:"content_type"`
@@ -27,6 +31,7 @@ type Config struct {
 type BodyTemplateModifier struct {
 	urlKeysToExtract        []string
 	template                *template.Template
+	endpointContentType     string
 	endpointContentEncoding string
 	backendContentEncoding  string
 	contentType             string
@@ -65,19 +70,35 @@ func (m *BodyTemplateModifier) ModifyRequest(req *http.Request) error {
 		return err
 	}
 
-	var bodyJson interface{}
-	err = json.Unmarshal(body, &bodyJson)
-	if err != nil {
-		logger.Debug("Error decoding Json Request:", err)
-		if e, ok := err.(*json.SyntaxError); ok {
-			logger.Debug("syntax error at byte offset %d", e.Offset)
+	buf := new(bytes.Buffer)
+	endpointContentType := "application/json"
+	if m.endpointContentType != "" {
+		endpointContentType = m.endpointContentType
+	}
+	if endpointContentType == "application/x-protobuf" {
+		bodyProtobuf := pb.TracePayload{}
+		err = proto.Unmarshal(body, &bodyProtobuf)
+		if err != nil {
+			logger.Debug("Error decoding Protobuf Request:", err)
 		}
-		logger.Debug("Json Request: %q", string(body))
-		return err
+		err = m.template.Execute(buf, bodyProtobuf)
+	} else if endpointContentType == "application/json" {
+		var bodyJson interface{}
+		err = json.Unmarshal(body, &bodyJson)
+		if err != nil {
+			logger.Debug("Error decoding Json Request:", err)
+			if e, ok := err.(*json.SyntaxError); ok {
+				logger.Debug("syntax error at byte offset %d", e.Offset)
+			}
+			logger.Debug("Json Request: %q", string(body))
+			return err
+		}
+		err = m.template.Execute(buf, bodyJson)
+	} else {
+		return errors.New("endpoint_content_type is not allowed")
 	}
 
-	buf := new(bytes.Buffer)
-	if err := m.template.Execute(buf, bodyJson); err != nil {
+	if err != nil {
 		return err
 	}
 	logger.Debug("Json New Request: %q", buf.String())
@@ -125,12 +146,17 @@ func FromJSON(b []byte) (*BodyTemplateModifier, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New("bodytemplate_modifier").Parse(cfg.Template)
+	tmpl, err := template.New("bodytemplate_modifier").Funcs(template.FuncMap{
+		"Int64ToString": func(value int64) string {
+			return strconv.FormatInt(value, 10)
+		},
+	}).Parse(cfg.Template)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BodyTemplateModifier{
+		endpointContentType:     cfg.EndpointContentType,
 		endpointContentEncoding: cfg.EndpointContentEncoding,
 		backendContentEncoding:  cfg.BackendContentEncoding,
 		urlKeysToExtract:        cfg.UrlKeysToExtract,

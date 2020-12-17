@@ -1,10 +1,11 @@
 module github.com/devopsfaith/krakend-ce
 
 replace github.com/devopsfaith/krakend => ../krakend
-	
+
 go 1.12
 
 require (
+	github.com/Masterminds/sprig v2.16.0+incompatible
 	github.com/PuerkitoBio/goquery v1.4.0 // indirect
 	github.com/andybalholm/cascadia v1.0.0 // indirect
 	github.com/catalinc/hashcash v0.0.0-20161205220751-e6bc29ff4de9 // indirect
@@ -46,6 +47,8 @@ require (
 	github.com/devopsfaith/krakend-xml v0.0.0-20200824111110-baa61b333b05
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-contrib/uuid v1.2.0
+	github.com/gogo/protobuf v1.2.0
+	github.com/golang/protobuf v1.4.3
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/martian v2.1.1-0.20190517191504-25dcb96d9e51+incompatible
 	github.com/gorilla/websocket v1.4.0 // indirect
@@ -82,5 +85,6 @@ require (
 	github.com/unrolled/secure v0.0.0-20171102162350-0f73fc7feba6 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.1-0.20200424115421-065759f9c3d7 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/Graylog2/go-gelf.v2 v2.0.0-20180326133423-4dbb9d721348 // indirect
 )

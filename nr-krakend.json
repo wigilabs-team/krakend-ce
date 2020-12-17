@@ -202,7 +202,7 @@
                         }
                     },
                     "host": [
-                        "https://http-intake.logs.datadoghq.com"
+                        "https://agent-http-intake.logs.datadoghq.com"
                     ]
                 },
                 {
@@ -249,6 +249,87 @@
                     },
                     "host": [
                         "https://log-api.newrelic.com"
+                    ]
+                }
+            ]
+        },
+        {
+            "endpoint": "/api/v0.2/traces",
+            "method": "POST",
+            "extra_config": {
+                "github.com/devopsfaith/krakend/proxy": {
+                    "sequential": true
+                }
+            },
+            "headers_to_pass": [
+                "Dd-Agent-Version",
+                "Dd-Api-Key",
+                "User-Agent",
+                "Content-Encoding",
+                "Content-Type",
+                "Accept-Encoding"
+            ],
+            "backend": [
+                {
+                    "url_pattern": "/api/v0.2/traces",
+                    "method": "POST",
+                    "extra_config": {
+                        "github.com/devopsfaith/krakend/http": {
+                            "return_error_details": "backend_datadog"
+                        }
+                    },
+                    "host": [
+                        "https://trace.agent.datadoghq.com"
+                    ]
+                },
+                {
+                    "url_pattern": "/trace/v1",
+                    "method": "POST",
+                    "extra_config": {
+                        "github.com/devopsfaith/krakend/http": {
+                            "return_error_details": "backend_newrelic"
+                        },
+                        "github.com/devopsfaith/krakend-martian": {
+                            "fifo.Group": {
+                                "scope": [
+                                    "request",
+                                    "response"
+                                ],
+                                "aggregateErrors": true,
+                                "modifiers": [
+                                    {
+                                        "body.Template": {
+                                            "endpoint_content_type": "application/x-protobuf",
+                                            "endpoint_content_encoding": "gzip",
+                                            "backend_content_encoding": "gzip",
+                                            "keys_to_extract": [],
+                                            "template": "[{{ range $indexTrace, $trace := .Traces }}{{ if (eq $indexTrace 0) }}{{ else }},{{ end }}{\"common\":{\"attributes\":{\"hostname\":\"{{ $.HostName }}\"}},\"spans\":[{{ range $indexSpan, $span := $trace.Spans }}{{ if (eq $indexSpan 0) }}{{ else }},{{ end }}{\"id\":\"{{ $span.SpanID }}\",\"trace.id\": \"{{ $trace.TraceID }}\",\"timestamp\":{{ Int64ToString $span.Start | printf \"%.13s\"}},\"attributes\":{\"service.name\":\"{{ $span.Service }}\",\"duration.ms\":\"{{ $span.Duration }}\",\"parent.id\":{{ if (eq $span.ParentID 0)}}null{{ else }}\"{{ $span.ParentID  }}\"{{ end }},\"name\":{{ printf \"%q\" $span.Resource }},\"resource\":{{ printf \"%q\" $span.Name }},\"type\":\"{{ $span.Type }}\",\"error\":\"{{ $span.Error }}\"{{ range $keyMeta, $valueMeta := $span.Meta }},\"{{ $keyMeta }}\":{{ printf \"%q\" $valueMeta }}{{ end }}}}{{ end }}]}{{ end }}]"
+                                        }
+                                    },
+                                            {
+                                        "header.Modifier": {
+                                            "scope": [
+                                                "request"
+                                            ],
+                                            "name": "Api-Key",
+                                            "value": "NR_API_KEY"
+                                        }
+                                    },
+                                    {
+                                        "header.Modifier": {
+                                            "scope": [
+                                                "request"
+                                            ],
+                                            "name": "Dd-Api-Key",
+                                            "value": ""
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "host": [
+                        "https://trace-api.newrelic.com"
                     ]
                 }
             ]
