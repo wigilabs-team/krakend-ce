@@ -15,7 +15,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -44,12 +46,14 @@ func (m *BodyTemplateModifier) ModifyRequest(req *http.Request) error {
 	var err error
 	logger, err := logging.NewLogger("DEBUG", os.Stdout, "")
 	logger.Debug("BodyTemplateModifier")
-	if m.endpointContentEncoding != "" {
+	contentEncoding := req.Header.Get("Content-Encoding")
+	logger.Debug(contentEncoding)
+	if contentEncoding != "" {
 		logger.Debug("endpointContentEncoding")
-		if m.endpointContentEncoding == "gzip" {
+		if contentEncoding == "gzip" {
 			logger.Debug("endpointContentEncoding: gzip")
 			reader, err = gzip.NewReader(req.Body)
-		} else if m.endpointContentEncoding == "deflate" {
+		} else if contentEncoding == "deflate" {
 			logger.Debug("endpointContentEncoding: deflate")
 			reader, err = zlib.NewReader(req.Body)
 		} else {
@@ -101,7 +105,7 @@ func (m *BodyTemplateModifier) ModifyRequest(req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	logger.Debug("Json New Request: %q", buf.String())
+	// logger.Debug("Json New Request: %q", buf.String())
 
 	var bufZip bytes.Buffer
 	var g io.WriteCloser
@@ -149,6 +153,15 @@ func FromJSON(b []byte) (*BodyTemplateModifier, error) {
 	tmpl, err := template.New("bodytemplate_modifier").Funcs(template.FuncMap{
 		"Int64ToString": func(value int64) string {
 			return strconv.FormatInt(value, 10)
+		},
+		"typeof": func(v interface{}) string {
+			return reflect.TypeOf(v).String()
+		},
+		"inc": func(v int) int {
+			return v + 1
+		},
+		"replace": func(input, from, to string) string {
+			return strings.Replace(input, from, to, -1)
 		},
 	}).Parse(cfg.Template)
 	if err != nil {

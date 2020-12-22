@@ -63,15 +63,55 @@
             "backend": [
                 {
                     "url_pattern": "/intake",
+                    "encoding": "string",
                     "method": "POST",
 	                  "extra_config": {
 				                "github.com/devopsfaith/krakend/http": {
-                            "return_error_details": "backend_datadog_intake"
+                            "return_error_details": "backend_datadog"
                         }
-
 	                  },
                     "host": [
 			                  "https://app.datadoghq.com"
+                    ]
+                },
+                {
+                    "url_pattern": "/v1/accounts/ACCOUNT_ID/events",
+                    "method": "POST",
+                    "extra_config": {
+                        "github.com/devopsfaith/krakend-martian": {
+                            "fifo.Group": {
+                                "scope": ["request", "response"],
+                                "aggregateErrors": true,
+                                "modifiers": [
+                                    {
+                                        "body.Template": {
+                                            "backend_content_encoding": "gzip",
+                                            "keys_to_extract": [
+                                                "api_key"
+                                            ],
+					                                  "template": "{{ $index := 0 }}[{{ if .events }}{{ range $keyEvent, $events := .events }}{{ if ne $index 0 }},{{ end }}{{ range $indexEvent, $event := $events }}{{ $index = inc $index }}{{ if ne $indexEvent 0 }},{{ end }}{\"eventType\":\"{{ if $event.event_type }}{{ $event.event_type }}{{ else }}{{ $event.alert_type }}{{ end }}\"{{ range $attrEvent, $valueEvent := $event }},\"{{ $attrEvent }}\":{{ if eq (typeof $valueEvent) \"float64\" }}{{ printf \"%.0f\" $valueEvent }}{{ else }}{{ printf \"%q\" $valueEvent }}{{ end }}{{ end }}}{{ end }}{{ end }}{{ end }}]"
+                                        }
+                                    },
+                                    {
+                                        "header.Modifier": {
+                                            "scope": ["request"],
+                                            "name": "Api-Key",
+                                            "value": "NR_API_KEY"
+                                        }
+                                    },
+                                    {
+                                        "header.Modifier": {
+                                            "scope": ["request"],
+                                            "name": "Dd-Api-Key",
+                                            "value": ""
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+	                  },
+                    "host": [
+                        "https://insights-collector.newrelic.com"
                     ]
                 }
             ]
